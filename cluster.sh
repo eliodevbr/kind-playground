@@ -7,6 +7,7 @@ set -e
 readonly KIND_NODE_IMAGE=kindest/node:v1.23.3
 readonly DNSMASQ_DOMAIN=kind.cluster
 readonly DNSMASQ_CONF=kind.k8s.conf
+readonly ROOT_CA_CN=kube-ca
 
 # DETECT OS
 
@@ -108,7 +109,7 @@ root_ca(){
     echo "Root certificate already exists, skipping"
   else
     openssl genrsa -out .ssl/root-ca-key.pem 2048
-    openssl req -x509 -new -nodes -key .ssl/root-ca-key.pem -days 3650 -sha256 -out .ssl/root-ca.pem -subj "/CN=kube-ca"
+    openssl req -x509 -new -nodes -key .ssl/root-ca-key.pem -days 3650 -sha256 -out .ssl/root-ca.pem -subj "/CN=$ROOT_CA_CN"
     echo "Root certificate created"
   fi
 }
@@ -411,8 +412,8 @@ cleanup(){
       sudo rm -f /usr/local/etc/dnsmasq.d/$DNSMASQ_CONF 2>/dev/null || true
       sudo rm -f /opt/homebrew/etc/dnsmasq.d/$DNSMASQ_CONF 2>/dev/null || true
       # Delete certificate by common name (may require manual removal if this fails)
-      sudo security delete-certificate -c "kube-ca" /Library/Keychains/System.keychain 2>/dev/null || \
-        echo "Note: Certificate removal may require manual action. Check Keychain Access for 'kube-ca'"
+      sudo security delete-certificate -c "$ROOT_CA_CN" /Library/Keychains/System.keychain 2>/dev/null || \
+        echo "Note: Certificate removal may require manual action. Check Keychain Access for '$ROOT_CA_CN'"
       ;;
     Windows)
       echo "Please manually remove certificate and DNS entries if needed."

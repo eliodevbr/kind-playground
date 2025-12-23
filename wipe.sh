@@ -9,7 +9,7 @@ kind delete cluster
 echo "Stopping and removing all Docker containers..."
 CONTAINERS=$(docker ps -aq)
 if [ -n "$CONTAINERS" ]; then
-  # Use for loop to avoid subshell issues with pipe
+  # Use for loop to avoid subshell issues, quote to prevent word splitting
   for container in $CONTAINERS; do
     docker rm -f "$container" 2>/dev/null || true
   done

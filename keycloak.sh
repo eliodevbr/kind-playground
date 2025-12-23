@@ -131,9 +131,9 @@ kubectl_config(){
   # Cross-platform base64 encoding (macOS doesn't support -w flag)
   local CA_DATA
   if [[ "$OS" == "macOS" ]]; then
-    CA_DATA=$(cat .ssl/root-ca.pem | base64)
+    CA_DATA=$(base64 < .ssl/root-ca.pem)
   else
-    CA_DATA=$(cat .ssl/root-ca.pem | base64 | tr -d '\n')
+    CA_DATA=$(base64 < .ssl/root-ca.pem | tr -d '\n')
   fi
 
   kubectl config set-credentials $1 \
