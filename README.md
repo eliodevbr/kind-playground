@@ -4,6 +4,35 @@ This repository contains code, scripts and manifests i use to play with local
 Kubernetes clusters with Kind, Cilium, MetalLB, Keycloak, ArgoCD and various
 other tools.
 
+## Platform Compatibility
+
+These scripts are compatible with **Linux**, **macOS**, and **Windows** (via WSL, Git Bash, or similar subsystems).
+
+### Requirements
+
+- Docker
+- kubectl
+- helm
+- kind
+- jq
+- openssl
+- terraform (for Keycloak configuration)
+
+### Platform-Specific Notes
+
+#### Linux
+- Certificate installation requires `sudo` privileges
+- DNS configuration uses `dnsmasq` (if available) or instructions for `/etc/hosts`
+
+#### macOS  
+- Certificate installation uses `security` command and requires `sudo` privileges
+- DNS configuration uses `dnsmasq` (if installed via Homebrew) or instructions for `/etc/hosts`
+
+#### Windows (WSL/Git Bash)
+- Certificate installation may require manual import or administrator privileges
+- DNS configuration requires manual modification of the `hosts` file
+- The scripts will provide instructions for manual configuration steps
+
 ## Basic cluster
 
 The [cluster.sh](./cluster.sh) script will bootstrap a local cluster with Kind and configure it
