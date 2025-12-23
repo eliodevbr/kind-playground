@@ -12,10 +12,10 @@ readonly DNSMASQ_CONF=kind.k8s.conf
 
 detect_os(){
   case "$(uname -s)" in
-    Linux*)     OS=Linux;;
-    Darwin*)    OS=macOS;;
-    CYGWIN*|MINGW*|MSYS*) OS=Windows;;
-    *)          OS=Unknown;;
+    Linux*)     declare -g OS=Linux;;
+    Darwin*)    declare -g OS=macOS;;
+    CYGWIN*|MINGW*|MSYS*) declare -g OS=Windows;;
+    *)          declare -g OS=Unknown;;
   esac
   echo "Detected OS: $OS"
 }
@@ -399,7 +399,7 @@ cleanup(){
     macOS)
       sudo rm -f /usr/local/etc/dnsmasq.d/$DNSMASQ_CONF 2>/dev/null || true
       sudo rm -f /opt/homebrew/etc/dnsmasq.d/$DNSMASQ_CONF 2>/dev/null || true
-      sudo security delete-certificate -c "kube-ca" -t 2>/dev/null || true
+      sudo security delete-certificate -c "kube-ca" /Library/Keychains/System.keychain 2>/dev/null || true
       ;;
     Windows)
       echo "Please manually remove certificate and DNS entries if needed."

@@ -11,10 +11,10 @@ readonly TF_STATE=.tf-state/keycloak.tfstate
 
 detect_os(){
   case "$(uname -s)" in
-    Linux*)     OS=Linux;;
-    Darwin*)    OS=macOS;;
-    CYGWIN*|MINGW*|MSYS*) OS=Windows;;
-    *)          OS=Unknown;;
+    Linux*)     declare -g OS=Linux;;
+    Darwin*)    declare -g OS=macOS;;
+    CYGWIN*|MINGW*|MSYS*) declare -g OS=Windows;;
+    *)          declare -g OS=Unknown;;
   esac
 }
 
