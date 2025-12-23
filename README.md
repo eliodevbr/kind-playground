@@ -4,6 +4,25 @@ This repository contains code, scripts and manifests i use to play with local
 Kubernetes clusters with Kind, Cilium, MetalLB, Keycloak, ArgoCD and various
 other tools.
 
+## Requirements
+
+- **Bash 4.2 or later** - The scripts require bash version 4.2 or later. On macOS, the default bash is version 3.2 which is too old. Install a newer version using Homebrew:
+  ```bash
+  brew install bash
+  ```
+  Then run scripts using the newer bash:
+  ```bash
+  /usr/local/bin/bash ./_bootstrap.sh
+  ```
+  Alternatively, you can change your default shell or add `/usr/local/bin/bash` to `/etc/shells` and use `chsh`.
+
+- **kubectl** - Kubernetes command-line tool
+- **helm** - Kubernetes package manager
+- **docker** - Container runtime
+- **kind** - Kubernetes in Docker
+- **curl** - For making HTTP requests
+- **terraform** - For Keycloak configuration (optional, only needed for keycloak.sh)
+
 ## Basic cluster
 
 The [cluster.sh](./cluster.sh) script will bootstrap a local cluster with Kind and configure it
