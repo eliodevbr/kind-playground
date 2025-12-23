@@ -4,7 +4,7 @@ set -e
 
 # CONSTANTS
 
-readonly KIND_NODE_IMAGE=kindest/node:v1.23.3
+readonly KIND_NODE_IMAGE=kindest/node:v1.34.0
 readonly DNSMASQ_DOMAIN=kind.cluster
 readonly DNSMASQ_CONF=kind.k8s.conf
 readonly ROOT_CA_CN=kube-ca
@@ -13,10 +13,10 @@ readonly ROOT_CA_CN=kube-ca
 
 detect_os(){
   case "$(uname -s)" in
-    Linux*)     declare -g OS=Linux;;
-    Darwin*)    declare -g OS=macOS;;
-    CYGWIN*|MINGW*|MSYS*) declare -g OS=Windows;;
-    *)          declare -g OS=Unknown;;
+    Linux*)     OS=Linux;;
+    Darwin*)    OS=macOS;;
+    CYGWIN*|MINGW*|MSYS*) OS=Windows;;
+    *)          OS=Unknown;;
   esac
   echo "Detected OS: $OS"
 }
@@ -235,7 +235,7 @@ cilium(){
 
   helm upgrade --install --wait --timeout 15m --atomic --namespace kube-system --create-namespace \
     --repo https://helm.cilium.io cilium cilium --values - <<EOF
-kubeProxyReplacement: strict
+kubeProxyReplacement: true
 k8sServiceHost: kind-external-load-balancer
 k8sServicePort: 6443
 hostServices:
