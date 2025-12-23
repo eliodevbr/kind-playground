@@ -7,6 +7,19 @@ set -e
 readonly KIND_NODE_IMAGE=kindest/node:v1.23.3
 readonly DNSMASQ_DOMAIN=kind.cluster
 readonly DNSMASQ_CONF=kind.k8s.conf
+readonly ROOT_CA_CN=kube-ca
+
+# DETECT OS
+
+detect_os(){
+  case "$(uname -s)" in
+    Linux*)     declare -g OS=Linux;;
+    Darwin*)    declare -g OS=macOS;;
+    CYGWIN*|MINGW*|MSYS*) declare -g OS=Windows;;
+    *)          declare -g OS=Unknown;;
+  esac
+  echo "Detected OS: $OS"
+}
 
 # FUNCTIONS
 
@@ -96,7 +109,7 @@ root_ca(){
     echo "Root certificate already exists, skipping"
   else
     openssl genrsa -out .ssl/root-ca-key.pem 2048
-    openssl req -x509 -new -nodes -key .ssl/root-ca-key.pem -days 3650 -sha256 -out .ssl/root-ca.pem -subj "/CN=kube-ca"
+    openssl req -x509 -new -nodes -key .ssl/root-ca-key.pem -days 3650 -sha256 -out .ssl/root-ca.pem -subj "/CN=$ROOT_CA_CN"
     echo "Root certificate created"
   fi
 }
@@ -104,11 +117,27 @@ root_ca(){
 install_ca(){
   log "INSTALL CERTIFICATE AUTHORITY ..."
 
-  sudo mkdir -p /usr/local/share/ca-certificates/kind.cluster
-
-  sudo cp -f .ssl/root-ca.pem /usr/local/share/ca-certificates/kind.cluster/ca.crt
-
-  sudo update-ca-certificates
+  case "$OS" in
+    Linux)
+      sudo mkdir -p /usr/local/share/ca-certificates/kind.cluster
+      sudo cp -f .ssl/root-ca.pem /usr/local/share/ca-certificates/kind.cluster/ca.crt
+      sudo update-ca-certificates
+      ;;
+    macOS)
+      sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain .ssl/root-ca.pem 2>/dev/null || echo "Certificate may already be installed"
+      ;;
+    Windows)
+      # For WSL/Git Bash on Windows, try to import to Windows cert store
+      if command -v certutil.exe &> /dev/null; then
+        certutil.exe -addstore -f "ROOT" .ssl/root-ca.pem 2>/dev/null || echo "Certificate installation may require admin privileges"
+      else
+        echo "Warning: Certificate installation on Windows requires manual import or running as administrator"
+      fi
+      ;;
+    *)
+      echo "Warning: Automatic certificate installation not supported on this OS. Please install .ssl/root-ca.pem manually."
+      ;;
+  esac
 }
 
 cluster(){
@@ -117,6 +146,10 @@ cluster(){
   log "CLUSTER ..."
 
   docker pull $KIND_NODE_IMAGE
+
+  # Get absolute path for certificate (cross-platform)
+  # This assumes root_ca() has already created the certificate
+  local CERT_PATH="$(pwd)/.ssl/root-ca.pem"
 
   kind create cluster --name $NAME --image $KIND_NODE_IMAGE --config - <<EOF
 kind: Cluster
@@ -166,32 +199,32 @@ containerdConfigPatches:
 nodes:
   - role: control-plane
     extraMounts:
-      - hostPath: $PWD/.ssl/root-ca.pem
+      - hostPath: $CERT_PATH
         containerPath: /opt/ca-certificates/root-ca.pem
         readOnly: true
   - role: control-plane
     extraMounts:
-      - hostPath: $PWD/.ssl/root-ca.pem
+      - hostPath: $CERT_PATH
         containerPath: /opt/ca-certificates/root-ca.pem
         readOnly: true
   - role: control-plane
     extraMounts:
-      - hostPath: $PWD/.ssl/root-ca.pem
+      - hostPath: $CERT_PATH
         containerPath: /opt/ca-certificates/root-ca.pem
         readOnly: true
   - role: worker
     extraMounts:
-      - hostPath: $PWD/.ssl/root-ca.pem
+      - hostPath: $CERT_PATH
         containerPath: /opt/ca-certificates/root-ca.pem
         readOnly: true
   - role: worker
     extraMounts:
-      - hostPath: $PWD/.ssl/root-ca.pem
+      - hostPath: $CERT_PATH
         containerPath: /opt/ca-certificates/root-ca.pem
         readOnly: true
   - role: worker
     extraMounts:
-      - hostPath: $PWD/.ssl/root-ca.pem
+      - hostPath: $CERT_PATH
         containerPath: /opt/ca-certificates/root-ca.pem
         readOnly: true
 EOF
@@ -296,25 +329,101 @@ dnsmasq(){
 
   local INGRESS_LB_IP=$(get_service_lb_ip ingress-nginx ingress-nginx-controller)
 
-  echo "address=/$DNSMASQ_DOMAIN/$INGRESS_LB_IP" | sudo tee /etc/dnsmasq.d/$DNSMASQ_CONF
+  case "$OS" in
+    Linux)
+      if command -v systemctl &> /dev/null && systemctl list-unit-files dnsmasq.service &> /dev/null; then
+        echo "address=/$DNSMASQ_DOMAIN/$INGRESS_LB_IP" | sudo tee /etc/dnsmasq.d/$DNSMASQ_CONF
+      else
+        echo "Warning: dnsmasq not found. You may need to manually add DNS entries."
+        echo "Add to /etc/hosts: $INGRESS_LB_IP $DNSMASQ_DOMAIN *.$DNSMASQ_DOMAIN"
+      fi
+      ;;
+    macOS)
+      if command -v dnsmasq &> /dev/null; then
+        # Try different dnsmasq paths on macOS
+        local configured=false
+        for dnsmasq_path in /usr/local/etc/dnsmasq.d /opt/homebrew/etc/dnsmasq.d; do
+          if [ -d "$dnsmasq_path" ]; then
+            if echo "address=/$DNSMASQ_DOMAIN/$INGRESS_LB_IP" | sudo tee "$dnsmasq_path/$DNSMASQ_CONF" > /dev/null; then
+              configured=true
+              break
+            fi
+          fi
+        done
+        if [ "$configured" = false ]; then
+          echo "Warning: Could not configure dnsmasq. You may need to manually add DNS entries."
+        fi
+      else
+        echo "Warning: dnsmasq not found on macOS. Install with: brew install dnsmasq"
+        echo "Or add to /etc/hosts: $INGRESS_LB_IP keycloak.$DNSMASQ_DOMAIN argocd.$DNSMASQ_DOMAIN hubble-ui.$DNSMASQ_DOMAIN"
+      fi
+      ;;
+    Windows)
+      echo "Windows detected. Please add the following to C:\Windows\System32\drivers\etc\hosts:"
+      echo "$INGRESS_LB_IP keycloak.$DNSMASQ_DOMAIN"
+      echo "$INGRESS_LB_IP argocd.$DNSMASQ_DOMAIN"
+      echo "$INGRESS_LB_IP hubble-ui.$DNSMASQ_DOMAIN"
+      echo "$INGRESS_LB_IP gitea.$DNSMASQ_DOMAIN"
+      echo "$INGRESS_LB_IP grafana.$DNSMASQ_DOMAIN"
+      echo "$INGRESS_LB_IP prometheus.$DNSMASQ_DOMAIN"
+      echo "$INGRESS_LB_IP alertmanager.$DNSMASQ_DOMAIN"
+      ;;
+    *)
+      echo "Warning: DNS configuration not supported on this OS. Please configure DNS manually."
+      ;;
+  esac
 }
 
 restart_service(){
   log "RESTART $1 ..."
 
-  sudo systemctl restart $1
+  case "$OS" in
+    Linux)
+      if command -v systemctl &> /dev/null; then
+        sudo systemctl restart $1 2>/dev/null || echo "Could not restart $1 service"
+      else
+        echo "Warning: systemctl not found. Service restart skipped."
+      fi
+      ;;
+    macOS)
+      if command -v brew &> /dev/null; then
+        brew services restart $1 2>/dev/null || echo "Could not restart $1 service"
+      else
+        echo "Warning: Could not restart $1 on macOS. You may need to restart it manually."
+      fi
+      ;;
+    Windows)
+      echo "Service restart on Windows requires manual action if needed."
+      ;;
+  esac
 }
 
 cleanup(){
   log "CLEANUP ..."
 
   kind delete cluster || true
-  sudo rm -f /etc/dnsmasq.d/$DNSMASQ_CONF
-  sudo rm -rf /usr/local/share/ca-certificates/kind.cluster
+  
+  case "$OS" in
+    Linux)
+      sudo rm -f /etc/dnsmasq.d/$DNSMASQ_CONF 2>/dev/null || true
+      sudo rm -rf /usr/local/share/ca-certificates/kind.cluster 2>/dev/null || true
+      ;;
+    macOS)
+      sudo rm -f /usr/local/etc/dnsmasq.d/$DNSMASQ_CONF 2>/dev/null || true
+      sudo rm -f /opt/homebrew/etc/dnsmasq.d/$DNSMASQ_CONF 2>/dev/null || true
+      # Delete certificate by common name (may require manual removal if this fails)
+      sudo security delete-certificate -c "$ROOT_CA_CN" /Library/Keychains/System.keychain 2>/dev/null || \
+        echo "Note: Certificate removal may require manual action. Check Keychain Access for '$ROOT_CA_CN'"
+      ;;
+    Windows)
+      echo "Please manually remove certificate and DNS entries if needed."
+      ;;
+  esac
 }
 
 # RUN
 
+detect_os
 cleanup
 network
 proxies
