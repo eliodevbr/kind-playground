@@ -375,7 +375,7 @@ restart_service(){
       ;;
     macOS)
       if command -v brew &> /dev/null; then
-        sudo brew services restart $1 2>/dev/null || echo "Could not restart $1 service"
+        brew services restart $1 2>/dev/null || echo "Could not restart $1 service"
       else
         echo "Warning: Could not restart $1 on macOS. You may need to restart it manually."
       fi
@@ -399,7 +399,9 @@ cleanup(){
     macOS)
       sudo rm -f /usr/local/etc/dnsmasq.d/$DNSMASQ_CONF 2>/dev/null || true
       sudo rm -f /opt/homebrew/etc/dnsmasq.d/$DNSMASQ_CONF 2>/dev/null || true
-      sudo security delete-certificate -c "kube-ca" /Library/Keychains/System.keychain 2>/dev/null || true
+      # Delete certificate by common name (may require manual removal if this fails)
+      sudo security delete-certificate -c "kube-ca" /Library/Keychains/System.keychain 2>/dev/null || \
+        echo "Note: Certificate removal may require manual action. Check Keychain Access for 'kube-ca'"
       ;;
     Windows)
       echo "Please manually remove certificate and DNS entries if needed."
