@@ -7,6 +7,17 @@ set -e
 readonly DNSMASQ_DOMAIN=kind.cluster
 readonly TF_STATE=.tf-state/keycloak.tfstate
 
+# DETECT OS
+
+detect_os(){
+  case "$(uname -s)" in
+    Linux*)     declare -g OS=Linux;;
+    Darwin*)    declare -g OS=macOS;;
+    CYGWIN*|MINGW*|MSYS*) declare -g OS=Windows;;
+    *)          declare -g OS=Unknown;;
+  esac
+}
+
 # FUNCTIONS
 
 log(){
@@ -94,6 +105,11 @@ EOF
 kubectl_config(){
   log "KUBECTL ..."
 
+  # Ensure OS is detected
+  if [ -z "$OS" ]; then
+    detect_os
+  fi
+
   local ID_TOKEN=$(curl -X POST https://keycloak.kind.cluster/auth/realms/master/protocol/openid-connect/token \
     -d grant_type=password \
     -d client_id=kube \
@@ -112,7 +128,13 @@ kubectl_config(){
     -d scope=openid \
     -d response_type=id_token | jq -r '.refresh_token')
 
-  local CA_DATA=$(cat .ssl/root-ca.pem | base64 | tr -d '\n')
+  # Cross-platform base64 encoding (macOS doesn't support -w flag)
+  local CA_DATA
+  if [[ "$OS" == "macOS" ]]; then
+    CA_DATA=$(base64 < .ssl/root-ca.pem)
+  else
+    CA_DATA=$(base64 < .ssl/root-ca.pem | tr -d '\n')
+  fi
 
   kubectl config set-credentials $1 \
     --auth-provider=oidc \
@@ -128,6 +150,7 @@ kubectl_config(){
 
 # RUN
 
+detect_os
 cleanup
 keycloak
 keycloak_config
