@@ -105,6 +105,11 @@ EOF
 kubectl_config(){
   log "KUBECTL ..."
 
+  # Ensure OS is detected
+  if [ -z "$OS" ]; then
+    detect_os
+  fi
+
   local ID_TOKEN=$(curl -X POST https://keycloak.kind.cluster/auth/realms/master/protocol/openid-connect/token \
     -d grant_type=password \
     -d client_id=kube \

@@ -147,7 +147,8 @@ cluster(){
   docker pull $KIND_NODE_IMAGE
 
   # Get absolute path for certificate (cross-platform)
-  local CERT_PATH="$(cd "$(dirname ".ssl/root-ca.pem")" && pwd)/$(basename ".ssl/root-ca.pem")"
+  # This assumes root_ca() has already created the certificate
+  local CERT_PATH="$(cd "$(dirname ".ssl")" && pwd)/$(basename ".ssl")/root-ca.pem"
 
   kind create cluster --name $NAME --image $KIND_NODE_IMAGE --config - <<EOF
 kind: Cluster
@@ -338,9 +339,15 @@ dnsmasq(){
       ;;
     macOS)
       if command -v dnsmasq &> /dev/null; then
-        echo "address=/$DNSMASQ_DOMAIN/$INGRESS_LB_IP" | sudo tee /usr/local/etc/dnsmasq.d/$DNSMASQ_CONF || \
-        echo "address=/$DNSMASQ_DOMAIN/$INGRESS_LB_IP" | sudo tee /opt/homebrew/etc/dnsmasq.d/$DNSMASQ_CONF 2>/dev/null || \
-        echo "Warning: Could not configure dnsmasq. You may need to manually add DNS entries."
+        # Try different dnsmasq paths on macOS
+        for dnsmasq_path in /usr/local/etc/dnsmasq.d /opt/homebrew/etc/dnsmasq.d; do
+          if [ -d "$dnsmasq_path" ]; then
+            echo "address=/$DNSMASQ_DOMAIN/$INGRESS_LB_IP" | sudo tee "$dnsmasq_path/$DNSMASQ_CONF" && break
+          fi
+        done
+        if [ ! -f "/usr/local/etc/dnsmasq.d/$DNSMASQ_CONF" ] && [ ! -f "/opt/homebrew/etc/dnsmasq.d/$DNSMASQ_CONF" ]; then
+          echo "Warning: Could not configure dnsmasq. You may need to manually add DNS entries."
+        fi
       else
         echo "Warning: dnsmasq not found on macOS. Install with: brew install dnsmasq"
         echo "Or add to /etc/hosts: $INGRESS_LB_IP keycloak.$DNSMASQ_DOMAIN argocd.$DNSMASQ_DOMAIN hubble-ui.$DNSMASQ_DOMAIN"
