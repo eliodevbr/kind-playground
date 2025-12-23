@@ -16,6 +16,13 @@ check_bash_version(){
     BASH_MINOR="${BASH_VERSION#*.}"
     BASH_MINOR="${BASH_MINOR%%.*}"
     
+    # Ensure the extracted values are numeric
+    if ! [[ "$BASH_MAJOR" =~ ^[0-9]+$ ]] || ! [[ "$BASH_MINOR" =~ ^[0-9]+$ ]]; then
+      echo "WARNING: Unable to parse bash version: $BASH_VERSION"
+      echo "This script requires bash 4.2 or later. Continuing anyway..."
+      return 0
+    fi
+    
     if [ "$BASH_MAJOR" -lt 4 ] || ([ "$BASH_MAJOR" -eq 4 ] && [ "$BASH_MINOR" -lt 2 ]); then
       echo "ERROR: Bash version 4.2 or later is required"
       echo "Current version: $BASH_VERSION"
