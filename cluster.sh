@@ -148,7 +148,7 @@ cluster(){
 
   # Get absolute path for certificate (cross-platform)
   # This assumes root_ca() has already created the certificate
-  local CERT_PATH="$(cd "$(dirname ".ssl")" && pwd)/$(basename ".ssl")/root-ca.pem"
+  local CERT_PATH="$(pwd)/.ssl/root-ca.pem"
 
   kind create cluster --name $NAME --image $KIND_NODE_IMAGE --config - <<EOF
 kind: Cluster
@@ -340,12 +340,16 @@ dnsmasq(){
     macOS)
       if command -v dnsmasq &> /dev/null; then
         # Try different dnsmasq paths on macOS
+        local configured=false
         for dnsmasq_path in /usr/local/etc/dnsmasq.d /opt/homebrew/etc/dnsmasq.d; do
           if [ -d "$dnsmasq_path" ]; then
-            echo "address=/$DNSMASQ_DOMAIN/$INGRESS_LB_IP" | sudo tee "$dnsmasq_path/$DNSMASQ_CONF" && break
+            if echo "address=/$DNSMASQ_DOMAIN/$INGRESS_LB_IP" | sudo tee "$dnsmasq_path/$DNSMASQ_CONF" > /dev/null; then
+              configured=true
+              break
+            fi
           fi
         done
-        if [ ! -f "/usr/local/etc/dnsmasq.d/$DNSMASQ_CONF" ] && [ ! -f "/opt/homebrew/etc/dnsmasq.d/$DNSMASQ_CONF" ]; then
+        if [ "$configured" = false ]; then
           echo "Warning: Could not configure dnsmasq. You may need to manually add DNS entries."
         fi
       else

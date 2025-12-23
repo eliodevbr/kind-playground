@@ -9,8 +9,8 @@ kind delete cluster
 echo "Stopping and removing all Docker containers..."
 CONTAINERS=$(docker ps -aq)
 if [ -n "$CONTAINERS" ]; then
-  # Try to remove containers one by one to handle both GNU and BSD xargs
-  echo "$CONTAINERS" | while read -r container; do
+  # Use for loop to avoid subshell issues with pipe
+  for container in $CONTAINERS; do
     docker rm -f "$container" 2>/dev/null || true
   done
 else
