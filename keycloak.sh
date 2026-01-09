@@ -29,7 +29,7 @@ log(){
 keycloak(){
   log "KEYCLOAK ..."
 
-  helm upgrade --install --wait --timeout 15m --atomic --namespace keycloak --create-namespace \
+  helm upgrade --install --wait --timeout 15m --rollback-on-failure --namespace keycloak --create-namespace \
     --repo https://charts.bitnami.com/bitnami keycloak keycloak --reuse-values --values - <<EOF
 auth:
   createAdminUser: true

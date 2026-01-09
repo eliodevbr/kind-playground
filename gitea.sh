@@ -17,7 +17,7 @@ log(){
 gitea(){
   log "GITEA ..."
 
-  helm upgrade --install --wait --timeout 15m --atomic --namespace gitea --create-namespace \
+  helm upgrade --install --wait --timeout 15m --rollback-on-failure --namespace gitea --create-namespace \
     --repo https://dl.gitea.io/charts gitea gitea --values - <<EOF
 gitea:
   admin:

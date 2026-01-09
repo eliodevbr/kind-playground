@@ -233,7 +233,7 @@ EOF
 cilium(){
   log "CILIUM ..."
 
-  helm upgrade --install --wait --timeout 15m --atomic --namespace kube-system --create-namespace \
+  helm upgrade --install --wait --timeout 15m --rollback-on-failure --namespace kube-system --create-namespace \
     --repo https://helm.cilium.io cilium cilium --values - <<EOF
 kubeProxyReplacement: true
 k8sServiceHost: kind-external-load-balancer
@@ -273,7 +273,7 @@ EOF
 cert_manager(){
   log "CERT MANAGER ..."
 
-  helm upgrade --install --wait --timeout 15m --atomic --namespace cert-manager --create-namespace \
+  helm upgrade --install --wait --timeout 15m --rollback-on-failure --namespace cert-manager --create-namespace \
     --repo https://charts.jetstack.io cert-manager cert-manager --values - <<EOF
 installCRDs: true
 EOF
@@ -303,7 +303,7 @@ metallb(){
   local METALLB_START=$(subnet_to_ip $KIND_SUBNET 255.200)
   local METALLB_END=$(subnet_to_ip $KIND_SUBNET 255.250)
 
-  helm upgrade --install --wait --timeout 15m --atomic --namespace metallb-system --create-namespace \
+  helm upgrade --install --wait --timeout 15m --rollback-on-failure --namespace metallb-system --create-namespace \
     --repo https://metallb.github.io/metallb metallb metallb --values - <<EOF
 configInline:
   address-pools:
@@ -317,7 +317,7 @@ EOF
 ingress(){
   log "INGRESS-NGINX ..."
 
-  helm upgrade --install --wait --timeout 15m --atomic --namespace ingress-nginx --create-namespace \
+  helm upgrade --install --wait --timeout 15m --rollback-on-failure --namespace ingress-nginx --create-namespace \
     --repo https://kubernetes.github.io/ingress-nginx ingress-nginx ingress-nginx --values - <<EOF
 defaultBackend:
   enabled: true
@@ -413,7 +413,7 @@ cleanup(){
       sudo rm -f /opt/homebrew/etc/dnsmasq.d/$DNSMASQ_CONF 2>/dev/null || true
       # Delete certificate by common name (may require manual removal if this fails)
       sudo security delete-certificate -c "$ROOT_CA_CN" /Library/Keychains/System.keychain 2>/dev/null || \
-        echo "Note: Certificate removal may require manual action. Check Keychain Access for '$ROOT_CA_CN'"
+      echo "Note: Certificate removal may require manual action. Check Keychain Access for '$ROOT_CA_CN'"
       ;;
     Windows)
       echo "Please manually remove certificate and DNS entries if needed."
@@ -424,11 +424,11 @@ cleanup(){
 # RUN
 
 detect_os
-cleanup
+# cleanup
 network
 proxies
-root_ca
-install_ca
+# root_ca
+# install_ca
 cluster
 cilium
 cert_manager
